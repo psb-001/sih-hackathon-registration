@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hackathon Registration - MES Mukunddas Lohia College of Engineering</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- React CDN -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- Babel for JSX processing -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+        const { useState } = React;
+
+        const HackathonRegistration = () => {
+            const [formData, setFormData] = useState({
+                teamName: '',
+                leaderName: '',
+                leaderRollNo: '',
+                leaderDivision: '',
+                members: [
+                    { name: '', rollNo: '' },
+                    { name: '', rollNo: '' },
+                    { name: '', rollNo: '' },
+                    { name: '', rollNo: '' },
+                    { name: '', rollNo: '' }
+                ],
+                problemStatement: '',
+                problemStatementNo: '',
+                domain: '',
+                technology: '',
+                sector: '',
+                dreamCompanies: ''
+            });
+
+            const [isSubmitting, setIsSubmitting] = useState(false);
+            const [isSubmitted, setIsSubmitted] = useState(false);
+            const [showAbout, setShowAbout] = useState(false);
+            const [rollNoError, setRollNoError] = useState('');
+            const [memberRollNoErrors, setMemberRollNoErrors] = useState(['', '', '', '', '']);
+
+            // WhatsApp Group Links for each division
+            const whatsappLinks = {
+                'A': 'https://chat.whatsapp.com/CGAGUmMpRh9HgWh3yUzQBb',
+                'B': 'https://chat.whatsapp.com/BFql4OOAA7KCOxp340tZYo',
+                'C': 'https://chat.whatsapp.com/I6aRcGdigC4L12tWqWY8JO'
+            };
+
+            const handleChange = (e) => {
+                const { name, value } = e.target;
+                setFormData(prev => ({
+                    ...prev,
+                    [name]: value
+                }));
+
+                // Validate roll number when it changes
+                if (name === 'leaderRollNo') {
+                    validateRollNo(value, formData.leaderDivision);
+                }
+                // Re-validate roll number when division changes
+                if (name === 'leaderDivision') {
+                    validateRollNo(formData.leaderRollNo, value);
+                    // Re-validate all member roll numbers with new division
+                    formData.members.forEach((member, index) => {
+                        if (member.rollNo) {
+                            validateMemberRollNo(index, member.rollNo, value);
+                        }
+                    });
+                }
+            };
+
+            const validateRollNo = (rollNo, division) => {
+                if (!rollNo || !division) {
+                    setRollNoError('');
+                    return true;
+                }
+
+                const expectedPrefix = `25${division}`;
+                const pattern = new RegExp(`^25${division}\\d{2}$`);
+
+                if (!pattern.test(rollNo)) {
+                    setRollNoError(`Roll number must be in format ${expectedPrefix}XX (e.g., ${expectedPrefix}01, ${expectedPrefix}15)`);
+                    return false;
+                }
+
+                setRollNoError('');
+                return true;
+            };
+
+            const handleMemberChange = (index, field, value) => {
+                const updatedMembers = [...formData.members];
+                updatedMembers[index] = {
+                    ...updatedMembers[index],
+                    [field]: value
+                };
+                setFormData(prev => ({
+                    ...prev,
+                    members: updatedMembers
+                }));
+
+                // Validate member roll number using leader's division
+                if (field === 'rollNo') {
+                    validateMemberRollNo(index, value, formData.leaderDivision);
+                }
+            };
+
+            const validateMemberRollNo = (index, rollNo, division) => {
+                if (!rollNo || !division) {
+                    const errors = [...memberRollNoErrors];
+                    errors[index] = '';
+                    setMemberRollNoErrors(errors);
+                    return true;
+                }
+
+                const pattern = new RegExp(`^25${division}\\d{2}$`);
+                const errors = [...memberRollNoErrors];
+
+                if (!pattern.test(rollNo)) {
+                    const expectedPrefix = `25${division}`;
+                    errors[index] = `Must be in format ${expectedPrefix}XX (e.g., ${expectedPrefix}01)`;
+                    setMemberRollNoErrors(errors);
+                    return false;
+                }
+
+                errors[index] = '';
+                setMemberRollNoErrors(errors);
+                return true;
+            };
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+
+                // Validate roll number before submission
+                if (!validateRollNo(formData.leaderRollNo, formData.leaderDivision)) {
+                    alert('Please correct the Group Leader roll number format before submitting.');
+                    return;
+                }
+
+                // Validate all member roll numbers
+                for (let i = 0; i < formData.members.length; i++) {
+                    const member = formData.members[i];
+                    // Only validate if member has either name or roll number filled
+                    if (member.name || member.rollNo) {
+                        if (member.rollNo && formData.leaderDivision && !validateMemberRollNo(i, member.rollNo, formData.leaderDivision)) {
+                            alert(`Please correct Member ${i + 1} roll number format before submitting.`);
+                            return;
+                        }
+                        // Check if all fields are filled if any field is filled
+                        if ((member.name && !member.rollNo) || (member.rollNo && !member.name)) {
+                            alert(`Member ${i + 1}: Please fill both Name and Roll No or leave both empty.`);
+                            return;
+                        }
+                    }
+                }
+
+                setIsSubmitting(true);
+
+                // Format data for Google Sheets
+                const payload = {
+                    teamName: formData.teamName,
+                    leaderName: formData.leaderName,
+                    leaderRollNo: formData.leaderRollNo,
+                    leaderDivision: formData.leaderDivision,
+                    member1Name: formData.members[0].name,
+                    member1RollNo: formData.members[0].rollNo,
+                    member1Division: formData.leaderDivision,
+                    member2Name: formData.members[1].name,
+                    member2RollNo: formData.members[1].rollNo,
+                    member2Division: formData.leaderDivision,
+                    member3Name: formData.members[2].name,
+                    member3RollNo: formData.members[2].rollNo,
+                    member3Division: formData.leaderDivision,
+                    member4Name: formData.members[3].name,
+                    member4RollNo: formData.members[3].rollNo,
+                    member4Division: formData.leaderDivision,
+                    member5Name: formData.members[4].name,
+                    member5RollNo: formData.members[4].rollNo,
+                    member5Division: formData.leaderDivision,
+                    problemStatement: formData.problemStatement,
+                    problemStatementNo: formData.problemStatementNo,
+                    domain: formData.domain,
+                    technology: formData.technology,
+                    sector: formData.sector,
+                    dreamCompanies: formData.dreamCompanies
+                };
+
+                try {
+                    // Replace with your Google Apps Script URL
+                    const response = await fetch('https://script.google.com/macros/s/AKfycbx_Gq1BGhHsMrUlt7V1CYmvQ0X-lt_oqs-8Kd0-UGP8Xl9gVWrxF8K326FdamyNFtE3/exec', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'text/plain;charset=utf-8',
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    // Show success message
+                    setIsSubmitted(true);
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert('Registration failed. Please try again.');
+                } finally {
+                    setIsSubmitting(false);
+                }
+            };
+
+            if (showAbout) {
+                return (
+                    <div>
+                        <header>
+                            <div className="container">
+                                <img src="https://mlcoe.mespune.in/wp-content/uploads/2025/07/mlcoe-logo.png" alt="College Logo" className="logo" />
+                                <h1>MES Mukunddas Lohia College of Engineering, Pune</h1>
+                                <h2>Internal Hackathon-2025 Registration</h2>
+                            </div>
+                        </header>
+
+                        <main>
+                            <div className="container">
+                                <div className="about-section">
+                                    <h3>About This Project</h3>
+                                    <div className="about-content">
+                                        <p>Well, well, well... Look who's curious about the brains behind this operation! 😄</p>
+                                        
+                                        <p>This webpage was developed by a team of brilliant minds who probably spent more time debugging than sleeping (but hey, that's just a theory):</p>
+                                        
+                                        <div className="developers">
+                                            <ul>
+                                                <li>🚀 Prathamesh Bhujbal</li>
+                                                <li>💻 Ayush Nimbhare</li>
+                                                <li>🔧 Govind Gandhi</li>
+                                                <li>🎨 Atharv Chougule</li>
+                                            </ul>
+                                        </div>
+                                        
+                                        <p>Fun fact: This form was built so efficiently that even the bugs tried to register for the hackathon! 🐛</p>
+                                        
+                                        <p>We hope you enjoy using our registration system. May your ideas be innovative, your code be clean, and your coffee be strong! ☕</p>
+                                        
+                                        <button className="back-button" onClick={() => setShowAbout(false)}>
+                                            Back to Registration
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </main>
+
+                        <footer>
+                            <div className="container">
+                                <p>&copy; 2025 MES Mukunddas Lohia College of Engineering, Pune. All rights reserved.</p>
+                            </div>
+                        </footer>
+                    </div>
+                );
+            }
+
+            if (isSubmitted) {
+                const divisionLink = whatsappLinks[formData.leaderDivision];
+                
+                return (
+                    <div>
+                        <header>
+                            <div className="container">
+                                <img src="https://mlcoe.mespune.in/wp-content/uploads/2025/07/mlcoe-logo.png" alt="College Logo" className="logo" />
+                                <h1>MES Mukunddas Lohia College of Engineering, Pune</h1>
+                                <h2>Internal Hackathon-2025 Registration</h2>
+                            </div>
+                        </header>
+
+                        <main>
+                            <div className="container">
+                                <div className="success-message">
+                                    <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+                                        <div style={{ fontSize: '60px', color: '#27ae60', marginBottom: '20px' }}>✓</div>
+                                        <h3 style={{ color: '#27ae60', marginBottom: '15px' }}>Registration Successful!</h3>
+                                        <p style={{ fontSize: '1.1rem', marginBottom: '10px' }}>Your team <strong>{formData.teamName}</strong> has been successfully registered.</p>
+                                        <p style={{ color: '#666', fontSize: '0.95rem' }}>Division: <strong>{formData.leaderDivision}</strong></p>
+                                    </div>
+                                    
+                                    <div style={{ 
+                                        background: 'linear-gradient(135deg, #25D366, #128C7E)', 
+                                        padding: '25px', 
+                                        borderRadius: '12px', 
+                                        marginTop: '30px',
+                                        boxShadow: '0 4px 15px rgba(37, 211, 102, 0.3)'
+                                    }}>
+                                        <h4 style={{ color: 'white', marginBottom: '15px', fontSize: '1.3rem', textAlign: 'center' }}>
+                                            💬 Join Your Division WhatsApp Group
+                                        </h4>
+                                        <p style={{ color: 'white', marginBottom: '20px', textAlign: 'center', fontSize: '0.95rem' }}>
+                                            Click the button below to join the Division {formData.leaderDivision} WhatsApp group for important updates and announcements.
+                                        </p>
+                                        <a 
+                                            href={divisionLink}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            style={{
+                                                display: 'block',
+                                                backgroundColor: 'white',
+                                                color: '#128C7E',
+                                                padding: '15px 30px',
+                                                borderRadius: '8px',
+                                                textDecoration: 'none',
+                                                fontWeight: '600',
+                                                fontSize: '1.1rem',
+                                                textAlign: 'center',
+                                                transition: 'transform 0.2s',
+                                                cursor: 'pointer'
+                                            }}
+                                            onMouseOver={(e) => e.target.style.transform = 'scale(1.05)'}
+                                            onMouseOut={(e) => e.target.style.transform = 'scale(1)'}
+                                        >
+                                            👉 Join Division {formData.leaderDivision} WhatsApp Group
+                                        </a>
+                                        <p style={{ color: 'white', marginTop: '15px', textAlign: 'center', fontSize: '0.85rem', opacity: '0.9' }}>
+                                            Make sure all team members join the group!
+                                        </p>
+                                    </div>
+
+                                    <div style={{ marginTop: '30px', textAlign: 'center' }}>
+                                        <p style={{ color: '#666', fontSize: '0.9rem' }}>
+                                            You will receive further instructions and updates through the WhatsApp group.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </main>
+
+                        <footer>
+                            <div className="container">
+                                <p>&copy; 2025 MES Mukunddas Lohia College of Engineering, Pune. All rights reserved.</p>
+                            </div>
+                        </footer>
+                    </div>
+                );
+            }
+
+            return (
+                <div>
+                    <header>
+                        <div className="container">
+                            <img src="https://mlcoe.mespune.in/wp-content/uploads/2025/07/mlcoe-logo.png" alt="College Logo" className="logo" />
+                            <h1>MES Mukunddas Lohia College of Engineering, Pune</h1>
+                            <h2>Internal Hackathon-2025 Registration</h2>
+                        </div>
+                    </header>
+
+                    <main>
+                        <div className="container">
+                            <form onSubmit={handleSubmit}>
+                                <div className="form-group">
+                                    <label htmlFor="teamName">Team Name *</label>
+                                    <input 
+                                        type="text" 
+                                        id="teamName" 
+                                        name="teamName" 
+                                        value={formData.teamName} 
+                                        onChange={handleChange} 
+                                        required 
+                                    />
+                                </div>
+
+                                <div className="form-group">
+                                    <label htmlFor="leaderName">Group Leader's Name *</label>
+                                    <input 
+                                        type="text" 
+                                        id="leaderName" 
+                                        name="leaderName" 
+                                        value={formData.leaderName} 
+                                        onChange={handleChange} 
+                                        required 
+                                    />
+                                </div>
+
+                                <div className="form-group">
+                                    <label htmlFor="leaderDivision">Group Leader's Division *</label>
+                                    <select 
+                                        id="leaderDivision" 
+                                        name="leaderDivision" 
+                                        value={formData.leaderDivision} 
+                                        onChange={handleChange} 
+                                        required
+                                    >
+                                        <option value="">Select Division</option>
+                                        <option value="A">A</option>
+                                        <option value="B">B</option>
+                                        <option value="C">C</option>
+                                    </select>
+                                </div>
+
+                                <div className="form-group">
+                                    <label htmlFor="leaderRollNo">Group Leader's Roll No *</label>
+                                    <input 
+                                        type="text" 
+                                        id="leaderRollNo" 
+                                        name="leaderRollNo" 
+                                        value={formData.leaderRollNo} 
+                                        onChange={handleChange} 
+                                        placeholder={formData.leaderDivision ? `25${formData.leaderDivision}XX (e.g., 25${formData.leaderDivision}01)` : 'Select division first'}
+                                        maxLength="5"
+                                        pattern="25[ABC]\d{2}"
+                                        required 
+                                        style={{ borderColor: rollNoError ? '#e74c3c' : '' }}
+                                    />
+                                    {rollNoError && <div style={{ color: '#e74c3c', fontSize: '14px', marginTop: '5px' }}>{rollNoError}</div>}
+                                    {formData.leaderDivision && !rollNoError && formData.leaderRollNo && (
+                                        <div style={{ color: '#27ae60', fontSize: '14px', marginTop: '5px' }}>✓ Valid roll number format</div>
+                                    )}
+                                </div>
+
+                                <div className="members-section">
+                                    <h3>Team Members (Max 6 members including leader)</h3>
+                                    <p style={{ textAlign: 'center', color: 'var(--dark-color)', marginBottom: '15px', fontSize: '0.95rem' }}>
+                                        All members must be from Division <strong>{formData.leaderDivision || '(Select leader\'s division first)'}</strong>
+                                    </p>
+                                    {formData.members.map((member, index) => (
+                                        <div className="member-group" key={index}>
+                                            <h4>Member {index+1}</h4>
+                                            <div className="form-row">
+                                                <div className="form-group">
+                                                    <label htmlFor={`member${index+1}Name`}>Name</label>
+                                                    <input 
+                                                        type="text" 
+                                                        id={`member${index+1}Name`} 
+                                                        value={member.name} 
+                                                        onChange={(e) => handleMemberChange(index, 'name', e.target.value)} 
+                                                    />
+                                                </div>
+                                                <div className="form-group">
+                                                    <label htmlFor={`member${index+1}RollNo`}>Roll No</label>
+                                                    <input 
+                                                        type="text" 
+                                                        id={`member${index+1}RollNo`} 
+                                                        value={member.rollNo} 
+                                                        onChange={(e) => handleMemberChange(index, 'rollNo', e.target.value)}
+                                                        placeholder={formData.leaderDivision ? `25${formData.leaderDivision}XX` : 'Select leader div first'}
+                                                        maxLength="5"
+                                                        pattern="25[ABC]\d{2}"
+                                                        disabled={!formData.leaderDivision}
+                                                        style={{ borderColor: memberRollNoErrors[index] ? '#e74c3c' : '' }}
+                                                    />
+                                                    {memberRollNoErrors[index] && (
+                                                        <div style={{ color: '#e74c3c', fontSize: '12px', marginTop: '3px' }}>
+                                                            {memberRollNoErrors[index]}
+                                                        </div>
+                                                    )}
+                                                    {formData.leaderDivision && !memberRollNoErrors[index] && member.rollNo && (
+                                                        <div style={{ color: '#27ae60', fontSize: '12px', marginTop: '3px' }}>✓ Valid</div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="form-group">
+                                    <label htmlFor="problemStatement">Chosen Problem Statement from SIH Website *</label>
+                                    <textarea 
+                                        id="problemStatement" 
+                                        name="problemStatement" 
+                                        rows={3} 
+                                        value={formData.problemStatement} 
+                                        onChange={handleChange} 
+                                        required 
+                                    ></textarea>
+                                </div>
+
+                                <div className="form-group">
+                                    <label htmlFor="problemStatementNo">Problem Statement Number *</label>
+                                    <input 
+                                        type="text" 
+                                        id="problemStatementNo" 
+                                        name="problemStatementNo" 
+                                        value={formData.problemStatementNo} 
+                                        onChange={handleChange} 
+                                        required 
+                                    />
+                                </div>
+
+                                <div className="form-group">
+                                    <label htmlFor="domain">Chosen Domain for Project *</label>
+                                    <select 
+                                        id="domain" 
+                                        name="domain" 
+                                        value={formData.domain} 
+                                        onChange={handleChange} 
+                                        required
+                                    >
+                                        <option value="">Select Domain</option>
+                                        <option value="Agriculture">Agriculture</option>
+                                        <option value="FoodTech & Rural Development">FoodTech & Rural Development</option>
+                                        <option value="Blockchain & Cybersecurity">Blockchain & Cybersecurity</option>
+                                        <option value="Clean & Green Technology">Clean & Green Technology</option>
+                                        <option value="Disaster Management">Disaster Management</option>
+                                        <option value="Fitness & Sports">Fitness & Sports</option>
+                                        <option value="Heritage & Culture">Heritage & Culture</option>
+                                        <option value="MedTech/BioTech/HealthTech">MedTech/BioTech/HealthTech</option>
+                                        <option value="Miscellaneous">Miscellaneous</option>
+                                        <option value="Renewable / Sustainable Energy">Renewable / Sustainable Energy</option>
+                                        <option value="Robotics and Drones">Robotics and Drones</option>
+                                        <option value="Smart Automation">Smart Automation</option>
+                                        <option value="Smart Education">Smart Education</option>
+                                        <option value="Smart Vehicles">Smart Vehicles</option>
+                                        <option value="Space Technology">Space Technology</option>
+                                        <option value="Toys and Games">Toys and Games</option>
+                                        <option value="Transportation & Logistics">Transportation & Logistics</option>
+                                        <option value="Travel & Tourism">Travel & Tourism</option>
+                                        <option value="Others">Others</option>
+                                    </select>
+                                </div>
+
+                                <div className="form-group">
+                                    <label htmlFor="technology">Technology to be Used *</label>
+                                    <input 
+                                        type="text" 
+                                        id="technology" 
+                                        name="technology" 
+                                        value={formData.technology} 
+                                        onChange={handleChange} 
+                                        required 
+                                    />
+                                </div>
+
+                                <div className="form-group">
+                                    <label htmlFor="sector">Sector *</label>
+                                    <select 
+                                        id="sector" 
+                                        name="sector" 
+                                        value={formData.sector} 
+                                        onChange={handleChange} 
+                                        required
+                                    >
+                                        <option value="">Select Sector</option>
+                                        <option value="Public">Public</option>
+                                        <option value="Government">Government</option>
+                                        <option value="Semi-Government">Semi-Government</option>
+                                        <option value="Private">Private</option>
+                                    </select>
+                                </div>
+
+                                <div className="form-group">
+                                    <label htmlFor="dreamCompanies">Dream Companies (Enter 4 companies separated by commas) *</label>
+                                    <input 
+                                        type="text" 
+                                        id="dreamCompanies" 
+                                        name="dreamCompanies" 
+                                        value={formData.dreamCompanies} 
+                                        onChange={handleChange} 
+                                        placeholder="e.g., Google, Microsoft, Amazon, Apple"
+                                        required 
+                                    />
+                                </div>
+
+                                <button type="submit" disabled={isSubmitting}>
+                                    {isSubmitting ? 'Registering...' : 'Register Team'}
+                                </button>
+                            </form>
+                        </div>
+                    </main>
+
+                    <footer>
+                        <div className="container">
+                            <p>&copy; 2025 MES Mukunddas Lohia College of Engineering, Pune. All rights reserved.</p>
+                            <p className="about-link" onClick={() => setShowAbout(true)}>
+                                About this page
+                            </p>
+                        </div>
+                    </footer>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<HackathonRegistration />);
+    </script>
+</body>
+</html>
